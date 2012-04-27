@@ -100,8 +100,6 @@ promoSqrs = [ (chessLocals.c,promoRow) , (chessLocals.d,promoRow) ,\
               (chessLocals.e,promoRow) , (chessLocals.f,promoRow) ]
 promoPcs = [ chessLocals.QUEEN, chessLocals.BISHOP,\
              chessLocals.KNIGHT, chessLocals.ROOK ]
-global waitingForPromotion
-waitingForPromotion = False
 
 ### Drag piece support
 # special rect to hold the active piece
@@ -139,13 +137,29 @@ check = pygame.image.load('img\check.png')
 # check needs its own rect, it is not displayed like the other 2
 checkRect = pygame.Rect(WINDOW_HEIGHT+15,80,100,35)
 
-networkGame = False
+
+##### GAME VARIABLES
+class gameVars:
+    def __init__( self ):
+        # game-state variables
+        self.startPos = None
+        self.endPos = None
+        self.pieceSelected = False
+        self.pieceDragged = False
+        self.changedPiece = False
+        self.waitingForPromotion = False
+        # progra variables
+        self.musicPlaying = True
+        self.networkGame = False
+        self.playerSide = chessLocals.WHITE
+        
 
 def main( ):
+    currentGame = gameVars()
     ### MUSIC
     pygame.mixer.music.load('04 5.mp3')
-    #pygame.mixer.music.play(-1,.2)
-    musicPlaying = False   
+    pygame.mixer.music.play(-1,.2)
+    
     ### SETUP BOARD ###
     # create square dictionary
     drawX, drawY = 25,25
@@ -164,7 +178,7 @@ def main( ):
 
     # see if there's a saved game
     try:
-        oldGame = open('queen.pkl','rb')
+        oldGame = open('saved.pkl','rb')
     except IOError:
         oldGame = None
     prevGame = savedGame( oldGame )
@@ -175,15 +189,8 @@ def main( ):
     else:
         # Initialize Board
         Board = board()
-    ### FINISH BOARD SETUP ###
 
-    #### GAME LOOP
-    # state variables
-    startPos = None
-    endPos = None
-    pieceSelected = False
-    pieceDragged = False
-    changedPiece = False
+    #### GAME LOOP ####
     while True:
         for event in pygame.event.get():
             # check for QUIT event
@@ -197,19 +204,19 @@ def main( ):
                     # square was clicked
                     if ( coordClicked in Board.allies() ):
                         ############## Unselect Piece ##############
-                        if ( pieceSelected == coordClicked ):
-                            changedPiece = False
+                        if ( currentGame.pieceSelected == coordClicked ):
+                            currentGame.changedPiece = False
                         else:
-                            changedPiece = True
+                            currentGame.changedPiece = True
                         ############################################
                         # a team piece was clicked, attach it to mouse position
-                        pieceSelected = coordClicked
-                        pieceDragged = True
+                        currentGame.pieceSelected = coordClicked
+                        currentGame.pieceDragged = True
                     else:
                         # empty square or enemy was clicked
-                        if not pieceDragged:
-                            pieceSelected = None
-                            pieceDragged = False
+                        if not currentGame.pieceDragged:
+                            currentGame.pieceSelected = None
+                            currentGame.pieceDragged = False
                         
             if event.type == MOUSEBUTTONUP:
                 # a click happened
@@ -218,22 +225,22 @@ def main( ):
                 for btn,rect in btnRects.iteritems():
                     if( rect.collidepoint( event.pos ) ):
                         if( btn == 'btnMusicOff' ):
-                            if musicPlaying:
+                            if currentGame.musicPlaying:
                                 # turn off music
                                 pygame.mixer.music.stop()
                             else:
                                 # turn on music
                                 pygame.mixer.music.play(-1,.2)
-                            musicPlaying = not musicPlaying
-                        if not networkGame:
+                            currentGame.musicPlaying = \
+                                                 not currentGame.musicPlaying
+                        if not currentGame.networkGame:
                             if( btn == 'btnNewGame' ):
                                 Board.reset()
-                                startPos = None
-                                endPos = None
+                                currentGame.startPos = None
+                                currentGame.endPos = None
                             if( btn == 'btnSaveGame' ):
                                 saveGame( Board )
                             if( btn == 'btnUndo' ):
-                                # lastMove != None---^
                                 Board.undo( )
                         if( btn == 'btnQuit' ):
                             exitGame()
@@ -243,44 +250,42 @@ def main( ):
                 moved = False
                 if( coordClicked ):
                     ############## Unselect Piece ##############
-                    if not( changedPiece ):
-                        pieceSelected = None
+                    if not( currentGame.changedPiece ):
+                        currentGame.pieceSelected = None
                     ############## Pawn promotion ##############
-                    if waitingForPromotion:
+                    if currentGame.waitingForPromotion:
                         if coordClicked in promoSqrs:
                             Board.promote( promoPcs[\
                                 promoSqrs.index(coordClicked)] )
-                            global waitingForPromotion
-                            waitingForPromotion = False
+                            currentGame.waitingForPromotion = False
                     ############## Select and Move ##############
-                    if( pieceDragged ):
+                    if( currentGame.pieceDragged ):
                     # a piece dragged was put down, if move is valid, make it
-                        if( pieceSelected ): # pieceSelected != None
-                            startPos,endPos = pieceSelected,coordClicked
-                            moved = movePiece( Board, pieceSelected, \
-                                           coordClicked )
+                        if( currentGame.pieceSelected ):
+                            # ^ pieceSelected != None
+                            currentGame.startPos = currentGame.pieceSelected
+                            currentGame.endPos = coordClicked
+                            moved = movePiece( Board, currentGame )
                     else:# only a click, however piece already found by
                         # MOUSEBUTTONDOWN
-                        if( startPos == None ):
-                            startPos = pieceSelected
+                        if( currentGame.startPos == None ):
+                            currentGame.startPos = currentGame.pieceSelected
                         else: # start pos already, get endpos and move
-                            endPos = coordClicked
-                            moved = movePiece( Board, startPos, endPos )
+                            currentGame.endPos = coordClicked
+                            moved = movePiece( Board, currentGame )
                     if moved:
-                        lastMove = move(startPos,endPos)
-                        startPos = None
-                        endPos = None
-                        pieceDragged = False
-                        pieceSelected = None
+                        currentGame.startPos = None
+                        currentGame.endPos = None
+                        currentGame.pieceDragged = False
+                        currentGame.pieceSelected = None
                     else:
-                        #lastMove = lastMove
-                        startPos = pieceSelected
-                        endPos = None
-                        pieceDragged = False
+                        currentGame.startPos = currentGame.pieceSelected
+                        currentGame.endPos = None
+                        currentGame.pieceDragged = False
                         #pieceSelected = pieceSelected
         # update screen after events
-        updateScreen( Board , windowSurface , squares, musicPlaying ,
-                      pieceSelected , pieceDragged , pygame.mouse.get_pos() )
+        updateScreen( Board , windowSurface , squares, currentGame,\
+                      pygame.mouse.get_pos() )
 
 def saveGame( Board ):
     """Save current game state."""
@@ -288,11 +293,10 @@ def saveGame( Board ):
     pickle.dump( Board , output )
     output.close()
         
-def movePiece( Board, startPos, endPos ):
-    global waitingForPromotion
-    nxtMove = move(startPos,endPos)
+def movePiece( Board, currentGame ):
+    nxtMove = move( currentGame.startPos,currentGame.endPos )
     if Board.makeMove(nxtMove):
-        waitingForPromotion = Board.canPromote()
+        currentGame.waitingForPromotion = Board.canPromote()
         return True
     else:
         return False
@@ -307,15 +311,15 @@ def posClicked( clickpos , squares ):
             return pos
     return None
 
-def updateScreen( Board , windowSurface , squares , musicPlaying , \
-                  pieceSelected , pieceDragged , mousepos):
+def updateScreen( Board , windowSurface , squares , currentGame , mousepos):
     # draw background
     pygame.draw.rect(windowSurface, boardColor, boardRect )
     drawPieces( Board , windowSurface , squares , \
-                pieceSelected , pieceDragged, mousepos )
+                currentGame.pieceSelected , currentGame.pieceDragged ,\
+                mousepos )
 
     # promotion area
-    if( waitingForPromotion ):
+    if( currentGame.waitingForPromotion ):
         pygame.draw.rect( windowSurface, boardColor , promoRect )
         xstart = promoRect.left+10
         ystart = promoRect.top+10
@@ -354,7 +358,7 @@ def updateScreen( Board , windowSurface , squares , musicPlaying , \
         ### music case is special because both buttons
         #   share a square
         if( name == 'btnMusicOff' ):
-            if musicPlaying:
+            if currentGame.musicPlaying:
                 btn = buttons[name]
             else:
                 btn = buttons['btnMusicOn']
@@ -362,7 +366,7 @@ def updateScreen( Board , windowSurface , squares , musicPlaying , \
         else:
             btn = buttons[name]
         ### now get proper state given the button status
-        if networkGame and( name in disabledForNetwork ):
+        if currentGame.networkGame and( name in disabledForNetwork ):
                 img = btn.disabled()
         elif( name == hovered ):
             # this button has mouse over it, make it active
