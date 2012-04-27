@@ -9,6 +9,7 @@
 
 import pygame, sys
 import pickle
+import socket
 from pygame.locals import *
 
 from buttonNames import *
@@ -22,7 +23,7 @@ import pieces
 pygame.init()
 
 # set up fonts
-basicFont = pygame.font.SysFont(None, 48)
+basicFont = pygame.font.SysFont(None, 40)
 infoFont = pygame.font.SysFont(None,20)
 
 whitesTurnTxt = basicFont.render( "White's Turn", True,(0,0,0),(200,200,200))
@@ -140,7 +141,8 @@ checkRect = pygame.Rect(WINDOW_HEIGHT+15,80,100,35)
 
 ##### GAME VARIABLES
 class gameVars:
-    def __init__( self ):
+    def __init__( self , network , sidePlayed = chessLocals.WHITE , \
+                  server = False , ip = None ):
         # game-state variables
         self.startPos = None
         self.endPos = None
@@ -150,12 +152,26 @@ class gameVars:
         self.waitingForPromotion = False
         # progra variables
         self.musicPlaying = True
-        self.networkGame = False
-        self.playerSide = chessLocals.WHITE
-        
+        self.networkGame = network
+        self.iAmServer = server
+        self.ip = ip
+        self.playerSide = sidePlayed        
 
 def main( ):
-    currentGame = gameVars()
+    currentGame = gameVars(False)
+
+    ### NETWORK
+    connection = None
+    currentGame.ip = socket.gethostbyname_ex(socket.gethostname())[2][0]
+    # ^ [2] to access list of ip addresses returned by gethostbyname_ex()
+    #   [0] to retrieve the first ip address on the list
+    if( currentGame.networkGame ):
+        connection = socket.socket ( socket.AF_INET, socket.SOCK_DGRAM )
+        if( currentGame.iAmServer ):
+            connection.bind( ( '', 2541 ) )
+        else:
+            connection.sendto('connected',( server , 2541 ) )
+    
     ### MUSIC
     pygame.mixer.music.load('04 5.mp3')
     pygame.mixer.music.play(-1,.2)
@@ -164,9 +180,12 @@ def main( ):
     # create square dictionary
     drawX, drawY = 25,25
     squares = {}# pygame.rect objects
-    # reverse number list so we get (letter,8) on top
-    #   and (letter,1) on the bottom
-    chessLocals.numberCoords.reverse()
+
+    if( currentGame.playerSide == chessLocals.WHITE ):
+        # reverse number list so we get (letter,8) on top
+        #   and (letter,1) on the bottom
+        chessLocals.numberCoords.reverse()
+    # else, we want black on the bottom
     for i in chessLocals.numberCoords:
         for j in chessLocals.letterCoords:
             newPos = (j,i)
@@ -174,14 +193,18 @@ def main( ):
             drawX += SQR_WIDTH
         drawY += SQR_HEIGHT
         drawX = 25
-    chessLocals.numberCoords.reverse()
+    if( currentGame.playerSide == chessLocals.WHITE ):
+        chessLocals.numberCoords.reverse()
 
     # see if there's a saved game
-    try:
-        oldGame = open('saved.pkl','rb')
-    except IOError:
-        oldGame = None
-    prevGame = savedGame( oldGame )
+    if not( currentGame.networkGame ):
+        try:
+            oldGame = open('saved.pkl','rb')
+        except IOError:
+            oldGame = None
+        prevGame = savedGame( oldGame )
+    else:
+        prevGame = None
 
     if( prevGame != None ):
         # saved game exists
@@ -274,6 +297,7 @@ def main( ):
                             currentGame.endPos = coordClicked
                             moved = movePiece( Board, currentGame )
                     if moved:
+                        
                         currentGame.startPos = None
                         currentGame.endPos = None
                         currentGame.pieceDragged = False
@@ -334,7 +358,6 @@ def updateScreen( Board , windowSurface , squares , currentGame , mousepos):
             
     # info area
     pygame.draw.rect(windowSurface, infoColor, infoRect)
-    # my info
     windowSurface.blit(daniel,myPos)
 
     # is game over?
@@ -350,7 +373,8 @@ def updateScreen( Board , windowSurface , squares , currentGame , mousepos):
         windowSurface.blit( stalemate , promoRect )
     else: #( gameStatus == chessLocals.NOT_DONE ):
         # game not done
-        pass
+        ipTxt = basicFont.render( 'IP:'+currentGame.ip, True,(0,0,0),boardColor)
+        windowSurface.blit(ipTxt,(585,200))
 
     # buttons
     hovered = activeSqr( mousepos )
