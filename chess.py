@@ -142,7 +142,7 @@ checkRect = pygame.Rect(WINDOW_HEIGHT+15,80,100,35)
 ##### GAME VARIABLES
 class gameVars:
     def __init__( self , network , sidePlayed = chessLocals.WHITE , \
-                  server = False , ip = None ):
+                  server = False , ip = 'localhost' ):
         # game-state variables
         self.startPos = None
         self.endPos = None
@@ -157,20 +157,128 @@ class gameVars:
         self.ip = ip
         self.playerSide = sidePlayed        
 
-def main( ):
-    currentGame = gameVars(False)
+def mainMenu( windowSurface ):
+    """Initail display. Gets user input to determine the game type. Return
+        value is a tuple: ( gameType , playerSide ). gameType can be any of
+        three values: True, when joining a network game; False when playing
+        a local game; and it will return the local machine's IP address if
+        a new network game will be selected. When creating a new network
+        game, the user will be prompted to choose a side; this selection is
+        the second value of the tuple. If joining a game, the return value
+        is False and this info should be received from server. If a local
+        game is being started, chessLocals.WHITE will be returned."""
+    # button texts
+    strings = ["New Local Game","New Network Game","Join Game","Quit"]
+    texts = []
+    rects = []
+    x = 400
+    y = 200
+    for i in range(len(strings)):
+        texts.append(basicFont.render( strings[i], True,(0,0,0),infoColor))
+        rects.append(texts[i].get_rect(topleft=(x,y)))
+        y = y + 40
+    # choose color texts
+    playWhiteTxt = basicFont.render( "White", True,(0,0,0),infoColor)
+    playBlackTxt = basicFont.render( "Black", True,(0,0,0),infoColor)
+    # draw to the screen
+    pygame.draw.rect(windowSurface, boardColor, infoRect)
+    pygame.draw.rect(windowSurface, boardColor, boardRect)
 
-    ### NETWORK
-    connection = None
-    currentGame.ip = socket.gethostbyname_ex(socket.gethostname())[2][0]
-    # ^ [2] to access list of ip addresses returned by gethostbyname_ex()
-    #   [0] to retrieve the first ip address on the list
-    if( currentGame.networkGame ):
-        connection = socket.socket ( socket.AF_INET, socket.SOCK_DGRAM )
-        if( currentGame.iAmServer ):
-            connection.bind( ( '', 2541 ) )
-        else:
-            connection.sendto('connected',( server , 2541 ) )
+    for i in range(len(strings)):
+        windowSurface.blit(texts[i],rects[i])
+    pygame.display.update()
+
+    while True:
+        for event in pygame.event.get():
+            # check for QUIT event
+            if event.type == QUIT:
+                print 'quit'
+                exitGame( )
+            if event.type == MOUSEBUTTONUP:
+                # a click happened
+                #-----------------
+                for i in range(len(rects)):
+                    if( rects[i].collidepoint( event.pos ) ):
+                        # i is in [0,3]
+                        if( i == 0 ):
+                            # new local game
+                            return( False, chessLocals.WHITE )
+                        elif( i == 1 ):
+                            # network game
+                            return( socket.gethostbyname_ex(\
+                                socket.gethostname())[2][0],\
+                                    chooseSide(windowSurface) )
+                            # ^ returns local machines ip address and
+                            # selection of piece color
+                        elif( i == 2 ):
+                            # join game
+                            return( True, None )
+                        else:
+                            exitGame()
+
+def chooseSide( windowSurface ):
+    # button texts
+    strings = ["Play White","Play Black"]
+    texts = []
+    rects = []
+    x = 400
+    y = 200
+    for i in range(len(strings)):
+        texts.append(basicFont.render( strings[i], True,(0,0,0),infoColor))
+        rects.append(texts[i].get_rect(topleft=(x,y)))
+        y = y + 40
+    # choose color texts
+    playWhiteTxt = basicFont.render( "White", True,(0,0,0),infoColor)
+    playBlackTxt = basicFont.render( "Black", True,(0,0,0),infoColor)
+    # draw to the screen
+    pygame.draw.rect(windowSurface, boardColor, infoRect)
+    pygame.draw.rect(windowSurface, boardColor, boardRect)
+
+    for i in range(len(strings)):
+        windowSurface.blit(texts[i],rects[i])
+    pygame.display.update()
+
+    while True:
+        for event in pygame.event.get():
+            # check for QUIT event
+            if event.type == QUIT:
+                print 'quit'
+                exitGame( )
+            if event.type == MOUSEBUTTONUP:
+                # a click happened
+                #-----------------
+                for i in range(len(rects)):
+                    if( rects[i].collidepoint( event.pos ) ):
+                        if( i == 0 ):
+                            return chessLocals.WHITE
+                        else:
+                            return chessLocals.BLACK
+
+def main( ):
+    
+    gameType = mainMenu( windowSurface )
+    currentGame = None
+    
+    if( gameType[0] == False ):
+        #local game
+        currentGame = gameVars( False )
+    elif( gameType[0] == True ):
+        # join game
+        currentGame = gameVars( True )
+    else: # it is local ip
+        currentGame = gameVars( True , gameType[1] , True , gameType[0] )
+
+##    ### NETWORK
+##    connection = None
+##    currentGame.ip = socket.gethostbyname_ex(socket.gethostname())[2][0]
+##    # ^ [2] to access list of ip addresses returned by gethostbyname_ex()
+##    #   [0] to retrieve the first ip address on the list
+##    if( currentGame.networkGame ):
+##        connection = socket.socket ( socket.AF_INET, socket.SOCK_DGRAM )
+##        if( currentGame.iAmServer ):
+##            connection.bind( ( '', 2541 ) )
+##        else:
+##            connection.sendto('connected',( server , 2541 ) )
     
     ### MUSIC
     pygame.mixer.music.load('04 5.mp3')
@@ -240,6 +348,13 @@ def main( ):
                         if not currentGame.pieceDragged:
                             currentGame.pieceSelected = None
                             currentGame.pieceDragged = False
+                    if( ( currentGame.playerSide !=
+                        Board.squares[coordClicked].contentColor ) and
+                        currentGame.networkGame ):
+                        # player is trying to move opposite pieces in a
+                        #   network game
+                        currentGame.pieceSelected = None
+                        currentGame.pieceDragged = False
                         
             if event.type == MOUSEBUTTONUP:
                 # a click happened
