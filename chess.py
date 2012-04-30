@@ -142,7 +142,7 @@ checkRect = pygame.Rect(WINDOW_HEIGHT+15,80,100,35)
 ##### GAME VARIABLES
 class gameVars:
     def __init__( self , network , sidePlayed = chessLocals.WHITE , \
-                  server = False , ip = 'localhost' ):
+                  server = False , ip = None ):
         # game-state variables
         self.startPos = None
         self.endPos = None
@@ -150,7 +150,8 @@ class gameVars:
         self.pieceDragged = False
         self.changedPiece = False
         self.waitingForPromotion = False
-        # progra variables
+        # program variables
+        self.saved = False
         self.musicPlaying = True
         self.networkGame = network
         self.iAmServer = server
@@ -168,7 +169,8 @@ def mainMenu( windowSurface ):
         is False and this info should be received from server. If a local
         game is being started, chessLocals.WHITE will be returned."""
     # button texts
-    strings = ["New Local Game","New Network Game","Join Game","Quit"]
+    strings = ["New Local Game","New Network Game","Join Game",\
+               "Load Game","Quit"]
     texts = []
     rects = []
     x = 400
@@ -177,9 +179,9 @@ def mainMenu( windowSurface ):
         texts.append(basicFont.render( strings[i], True,(0,0,0),infoColor))
         rects.append(texts[i].get_rect(topleft=(x,y)))
         y = y + 40
-    # choose color texts
-    playWhiteTxt = basicFont.render( "White", True,(0,0,0),infoColor)
-    playBlackTxt = basicFont.render( "Black", True,(0,0,0),infoColor)
+##    # choose color texts
+##    playWhiteTxt = basicFont.render( "White", True,(0,0,0),infoColor)
+##    playBlackTxt = basicFont.render( "Black", True,(0,0,0),infoColor)
     # draw to the screen
     pygame.draw.rect(windowSurface, boardColor, infoRect)
     pygame.draw.rect(windowSurface, boardColor, boardRect)
@@ -213,6 +215,9 @@ def mainMenu( windowSurface ):
                         elif( i == 2 ):
                             # join game
                             return( True, None )
+                        elif( i == 3 ):
+                            # load game
+                            return( False, False )
                         else:
                             exitGame()
 
@@ -262,6 +267,21 @@ def main( ):
     if( gameType[0] == False ):
         #local game
         currentGame = gameVars( False )
+        if( gameType[1] == False ):
+            # load game
+            # see if there's a saved game
+            try:
+                oldGame = open('saved.pkl','rb')
+            except IOError:
+                oldGame = None
+            prevGame = savedGame( oldGame )
+            if( prevGame != None ):
+                # saved game exists
+                Board = prevGame
+                currentGame.saved = True
+        else:#if( gameType[0] == chessLocals.WHITE ):
+            # new game
+            Board = board()
     elif( gameType[0] == True ):
         # join game
         currentGame = gameVars( True )
@@ -303,23 +323,6 @@ def main( ):
         drawX = 25
     if( currentGame.playerSide == chessLocals.WHITE ):
         chessLocals.numberCoords.reverse()
-
-    # see if there's a saved game
-    if not( currentGame.networkGame ):
-        try:
-            oldGame = open('saved.pkl','rb')
-        except IOError:
-            oldGame = None
-        prevGame = savedGame( oldGame )
-    else:
-        prevGame = None
-
-    if( prevGame != None ):
-        # saved game exists
-        Board = prevGame
-    else:
-        # Initialize Board
-        Board = board()
 
     #### GAME LOOP ####
     while True:
@@ -377,7 +380,7 @@ def main( ):
                                 currentGame.startPos = None
                                 currentGame.endPos = None
                             if( btn == 'btnSaveGame' ):
-                                saveGame( Board )
+                                saveGame( Board , currentGame )
                             if( btn == 'btnUndo' ):
                                 Board.undo( )
                         if( btn == 'btnQuit' ):
@@ -426,9 +429,10 @@ def main( ):
         updateScreen( Board , windowSurface , squares, currentGame,\
                       pygame.mouse.get_pos() )
 
-def saveGame( Board ):
+def saveGame( Board , currentGame ):
     """Save current game state."""
-    output = open('queen.pkl','wb')
+    currentGame.saved = True
+    output = open('saved.pkl','wb')
     pickle.dump( Board , output )
     output.close()
         
@@ -436,6 +440,7 @@ def movePiece( Board, currentGame ):
     nxtMove = move( currentGame.startPos,currentGame.endPos )
     if Board.makeMove(nxtMove):
         currentGame.waitingForPromotion = Board.canPromote()
+        currentGame.saved = False
         return True
     else:
         return False
@@ -488,8 +493,10 @@ def updateScreen( Board , windowSurface , squares , currentGame , mousepos):
         windowSurface.blit( stalemate , promoRect )
     else: #( gameStatus == chessLocals.NOT_DONE ):
         # game not done
-        ipTxt = basicFont.render( 'IP:'+currentGame.ip, True,(0,0,0),boardColor)
-        windowSurface.blit(ipTxt,(585,200))
+        if currentGame.networkGame:
+            ipTxt = basicFont.render( 'IP:'+currentGame.ip, \
+                                      True,(0,0,0),boardColor)
+            windowSurface.blit(ipTxt,(585,200))
 
     # buttons
     hovered = activeSqr( mousepos )
@@ -501,7 +508,7 @@ def updateScreen( Board , windowSurface , squares , currentGame , mousepos):
                 btn = buttons[name]
             else:
                 btn = buttons['btnMusicOn']
-        ### if not music, nothing special
+        ### if not music btn, nothing special
         else:
             btn = buttons[name]
         ### now get proper state given the button status
@@ -512,7 +519,9 @@ def updateScreen( Board , windowSurface , squares , currentGame , mousepos):
             img = btn.active()
         else:
             img = btn.normal()
-        
+        ### save button should be disabled if game has been saved
+        if( name == 'btnSaveGame' and currentGame.saved ):
+            img = btn.disabled()
         if img:
             if( btn.name() == 'btnMusicOn' ):
                 windowSurface.blit(img,btnRects['btnMusicOff'])
