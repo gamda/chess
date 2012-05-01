@@ -155,8 +155,11 @@ class gameVars:
         self.musicPlaying = True
         self.networkGame = network
         self.iAmServer = server
+        self.connectTo = None
         self.ip = ip
-        self.playerSide = sidePlayed        
+        self.playerSide = sidePlayed
+
+PORT = 5050
 
 def mainMenu( windowSurface ):
     """Initail display. Gets user input to determine the game type. Return
@@ -280,7 +283,7 @@ def main( ):
         currentGame = gameVars( True , gameType[1] , True , gameType[0] )
 
     ### BOARD
-    if( prevGame != None ):
+    if( prevGame != None and not currentGame.networkGame ):
         # saved game exists
         Board = prevGame
         currentGame.saved = True
@@ -291,14 +294,31 @@ def main( ):
     ### NETWORK
     connection = None
     currentGame.ip = socket.gethostbyname_ex(socket.gethostname())[2][0]
+    print currentGame.ip
     # ^ [2] to access list of ip addresses returned by gethostbyname_ex()
     #   [0] to retrieve the first ip address on the list
     if( currentGame.networkGame ):
         connection = socket.socket ( socket.AF_INET, socket.SOCK_DGRAM )
         if( currentGame.iAmServer ):
-            connection.bind( ( '', 2541 ) )
+            connection.bind( ( currentGame.ip , PORT+2 ) )
+            data,client = connection.recvfrom(1000)
+            print 'data from',client
+            print data
+            currentGame.connectTo = client
+            # send side info
+            connection.sendto( currentGame.playerSide, client )
         else:
-            connection.sendto('connected',( server , 2541 ) )
+            connection.connect( (currentGame.ip,PORT+2) )
+            connection.send('connected')
+            # receive side info
+            data, server = connection.recvfrom(1000)
+            currentGame.connectTo = server
+            print 'data from',server
+            print data
+            if( data == chessLocals.WHITE ):
+                currentGame.playerSide = chessLocals.BLACK
+            else:
+                currentGame.playerSide = chessLocals.WHITE
     
     ### MUSIC
     pygame.mixer.music.load('04 5.mp3')
@@ -326,9 +346,31 @@ def main( ):
 
     #### GAME LOOP ####
     while True:
+        ### Receive network move
+        if( currentGame.networkGame ):
+            if( Board.whitesTurn ):
+                if( currentGame.playerSide != chessLocals.WHITE ):
+                    data,client = connection.recvfrom(1000)
+                    print 'data from',client
+                    print data
+                    # data received is move already validated, so make it
+                    # in local board
+                    Board.makeMove( pickle.loads(data) )
+                #else, local player's turn. pass
+            else:
+                if not( currentGame.playerSide == chessLocals.BLACK ):
+                    data,client = connection.recvfrom(1000)
+                    print 'data from',client
+                    print data
+                    # data received is move already validated, so make it
+                    # in local board
+                    Board.makeMove( pickle.loads(data) )
+                
         for event in pygame.event.get():
             # check for QUIT event
             if event.type == 12:
+                connection.shutdown(SHUT_RDWR)
+                connection.close()
                 exitGame( )
             # if a piece is clicked, but mouse is not up, move chip
             if event.type == MOUSEBUTTONDOWN:
@@ -406,14 +448,14 @@ def main( ):
                             # ^ pieceSelected != None
                             currentGame.startPos = currentGame.pieceSelected
                             currentGame.endPos = coordClicked
-                            moved = movePiece( Board, currentGame )
+                            moved = movePiece( Board, currentGame, connection )
                     else:# only a click, however piece already found by
                         # MOUSEBUTTONDOWN
                         if( currentGame.startPos == None ):
                             currentGame.startPos = currentGame.pieceSelected
                         else: # start pos already, get endpos and move
                             currentGame.endPos = coordClicked
-                            moved = movePiece( Board, currentGame )
+                            moved = movePiece( Board, currentGame, connection )
                     if moved:
                         
                         currentGame.startPos = None
@@ -436,10 +478,11 @@ def saveGame( Board , currentGame ):
     pickle.dump( Board , output )
     output.close()
         
-def movePiece( Board, currentGame ):
+def movePiece( Board, currentGame, connection ):
     nxtMove = move( currentGame.startPos,currentGame.endPos )
     if Board.makeMove(nxtMove):
         currentGame.waitingForPromotion = Board.canPromote()
+        connection.sendto( pickle.dumps(nxtMove), currentGame.connectTo )
         currentGame.saved = False
         return True
     else:
