@@ -24,6 +24,10 @@ class board:
         self.turnCount = 0
         self.moves = []
         self.temp = None
+        self.hadTempMoved = False
+        # this var is to restor hasMoved attribute of pawns and king
+        #   when undoing:
+        self.didPieceMoveBefore = False
         self.save = False
         # data objects
         self.squares = self._generateSquares()
@@ -290,9 +294,14 @@ class board:
         # corresponding to endpos key in dict
         try:
             self.temp = self.pieces[endpos]
+            if hasattr( self.temp , 'hasMoved' ):
+                print 'hasMoved updated'
+                self.hadTempMoved = self.temp.hasMoved
         except KeyError:
             self.temp = None
         # move piece, delete from old position
+        if hasattr( self.pieces[startpos] , 'hasMoved' ):
+            self.didPieceMoveBefore = self.pieces[startpos].hasMoved
         self.pieces[startpos].move(endpos)
         self.pieces[endpos] = self.pieces[startpos]
         del self.pieces[startpos]
@@ -313,11 +322,15 @@ class board:
             self.pieces[endpos] = self.pieces[startpos]
             self.pieces[endpos].move(endpos)
             self.pieces[startpos] = self.temp
+            if hasattr( self.temp , 'hasMoved' ):
+                self.pieces[startpos].hasMoved = self.hadTempMoved
             self.temp = None
-        else: #taken care of with _moveAndUpdate
+        else:
             self.pieces[endpos] = self.pieces[startpos]
             self.pieces[endpos].move(endpos)
             del self.pieces[startpos]
+        if hasattr(self.pieces[endpos] , 'hasMoved' ):
+            self.pieces[endpos].hasMoved = self.didPieceMoveBefore
         
         self.moves.remove(lastMove)
         # check for castle move

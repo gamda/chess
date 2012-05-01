@@ -26,12 +26,6 @@ pygame.init()
 basicFont = pygame.font.SysFont(None, 40)
 infoFont = pygame.font.SysFont(None,20)
 
-whitesTurnTxt = basicFont.render( "White's Turn", True,(0,0,0),(200,200,200))
-blacksTurnTxt = basicFont.render( "Black's Turn", True,(0,0,0),(200,200,200))
-checkmateTxt = basicFont.render( "Checkmate!", True,(0,0,0),(200,200,200))
-checkTxt = basicFont.render( "Check!", True,(0,0,0),(200,200,200))
-stalemateTxt = basicFont.render( "Stalemate!", True,(0,0,0),(200,200,200))
-
 # window size
 WINDOW_WIDTH = 800
 WINDOW_HEIGHT = 570
@@ -182,9 +176,6 @@ def mainMenu( windowSurface ):
         texts.append(basicFont.render( strings[i], True,(0,0,0),infoColor))
         rects.append(texts[i].get_rect(topleft=(x,y)))
         y = y + 40
-##    # choose color texts
-##    playWhiteTxt = basicFont.render( "White", True,(0,0,0),infoColor)
-##    playBlackTxt = basicFont.render( "Black", True,(0,0,0),infoColor)
     # draw to the screen
     pygame.draw.rect(windowSurface, boardColor, infoRect)
     pygame.draw.rect(windowSurface, boardColor, boardRect)
@@ -482,7 +473,8 @@ def movePiece( Board, currentGame, connection ):
     nxtMove = move( currentGame.startPos,currentGame.endPos )
     if Board.makeMove(nxtMove):
         currentGame.waitingForPromotion = Board.canPromote()
-        connection.sendto( pickle.dumps(nxtMove), currentGame.connectTo )
+        if( currentGame.networkGame ):
+            connection.sendto( pickle.dumps(nxtMove), currentGame.connectTo )
         currentGame.saved = False
         return True
     else:
