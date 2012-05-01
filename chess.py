@@ -194,7 +194,6 @@ def mainMenu( windowSurface ):
         for event in pygame.event.get():
             # check for QUIT event
             if event.type == QUIT:
-                print 'quit'
                 exitGame( )
             if event.type == MOUSEBUTTONUP:
                 # a click happened
@@ -247,7 +246,6 @@ def chooseSide( windowSurface ):
         for event in pygame.event.get():
             # check for QUIT event
             if event.type == QUIT:
-                print 'quit'
                 exitGame( )
             if event.type == MOUSEBUTTONUP:
                 # a click happened
@@ -263,7 +261,7 @@ def main( ):
     
     gameType = mainMenu( windowSurface )
     currentGame = None
-    
+    prevGame = None
     if( gameType[0] == False ):
         #local game
         currentGame = gameVars( False )
@@ -275,30 +273,32 @@ def main( ):
             except IOError:
                 oldGame = None
             prevGame = savedGame( oldGame )
-            if( prevGame != None ):
-                # saved game exists
-                Board = prevGame
-                currentGame.saved = True
-        else:#if( gameType[0] == chessLocals.WHITE ):
-            # new game
-            Board = board()
     elif( gameType[0] == True ):
         # join game
         currentGame = gameVars( True )
     else: # it is local ip
         currentGame = gameVars( True , gameType[1] , True , gameType[0] )
 
-##    ### NETWORK
-##    connection = None
-##    currentGame.ip = socket.gethostbyname_ex(socket.gethostname())[2][0]
-##    # ^ [2] to access list of ip addresses returned by gethostbyname_ex()
-##    #   [0] to retrieve the first ip address on the list
-##    if( currentGame.networkGame ):
-##        connection = socket.socket ( socket.AF_INET, socket.SOCK_DGRAM )
-##        if( currentGame.iAmServer ):
-##            connection.bind( ( '', 2541 ) )
-##        else:
-##            connection.sendto('connected',( server , 2541 ) )
+    ### BOARD
+    if( prevGame != None ):
+        # saved game exists
+        Board = prevGame
+        currentGame.saved = True
+    else:#if( gameType[0] == chessLocals.WHITE ):
+        # new game
+        Board = board()
+
+    ### NETWORK
+    connection = None
+    currentGame.ip = socket.gethostbyname_ex(socket.gethostname())[2][0]
+    # ^ [2] to access list of ip addresses returned by gethostbyname_ex()
+    #   [0] to retrieve the first ip address on the list
+    if( currentGame.networkGame ):
+        connection = socket.socket ( socket.AF_INET, socket.SOCK_DGRAM )
+        if( currentGame.iAmServer ):
+            connection.bind( ( '', 2541 ) )
+        else:
+            connection.sendto('connected',( server , 2541 ) )
     
     ### MUSIC
     pygame.mixer.music.load('04 5.mp3')
@@ -328,7 +328,7 @@ def main( ):
     while True:
         for event in pygame.event.get():
             # check for QUIT event
-            if event.type == QUIT:
+            if event.type == 12:
                 exitGame( )
             # if a piece is clicked, but mouse is not up, move chip
             if event.type == MOUSEBUTTONDOWN:
