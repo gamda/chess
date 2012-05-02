@@ -291,7 +291,14 @@ def main( ):
     if( currentGame.networkGame ):
         connection = socket.socket ( socket.AF_INET, socket.SOCK_DGRAM )
         if( currentGame.iAmServer ):
-            connection.bind( ( currentGame.ip , PORT+2 ) )
+            # show waiting message
+            pygame.draw.rect(windowSurface, boardColor, infoRect)
+            pygame.draw.rect(windowSurface, boardColor, boardRect)
+            waiting = basicFont.render('Waiting for opponent',True,
+                                       (0,0,0),infoColor)
+            windowSurface.blit(waiting, (100,100))
+            pygame.display.update()
+            connection.bind( ( currentGame.ip , PORT+3 ) )
             data,client = connection.recvfrom(1000)
             print 'data from',client
             print data
@@ -299,7 +306,7 @@ def main( ):
             # send side info
             connection.sendto( currentGame.playerSide, client )
         else:
-            connection.connect( (currentGame.ip,PORT+2) )
+            connection.connect( (currentGame.ip,PORT+3) )
             connection.send('connected')
             # receive side info
             data, server = connection.recvfrom(1000)
@@ -342,8 +349,6 @@ def main( ):
             if( Board.whitesTurn ):
                 if( currentGame.playerSide != chessLocals.WHITE ):
                     data,client = connection.recvfrom(1000)
-                    print 'data from',client
-                    print data
                     # data received is move already validated, so make it
                     # in local board
                     Board.makeMove( pickle.loads(data) )
@@ -351,8 +356,6 @@ def main( ):
             else:
                 if not( currentGame.playerSide == chessLocals.BLACK ):
                     data,client = connection.recvfrom(1000)
-                    print 'data from',client
-                    print data
                     # data received is move already validated, so make it
                     # in local board
                     Board.makeMove( pickle.loads(data) )
