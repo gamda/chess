@@ -301,7 +301,7 @@ def main( ):
                                      (0,0,0),infoColor)
             windowSurface.blit(myIP, (100,200))
             pygame.display.update()
-            connection.bind( ( currentGame.ip , PORT ) )
+            connection.bind( ( currentGame.ip , PORT+3 ) )
             data,client = connection.recvfrom(1000)
             print 'data from',client
             print data
@@ -317,7 +317,7 @@ def main( ):
                                        (0,0,0),infoColor)
             windowSurface.blit(waiting, (100,100))
             pygame.display.update()
-            connection.connect( ( currentGame.ip,PORT ) )
+            connection.connect( ( currentGame.ip,PORT+3 ) )
             connection.send('connected')
             # receive side info
             data, server = connection.recvfrom(1000)
@@ -354,30 +354,32 @@ def main( ):
         chessLocals.numberCoords.reverse()
 
     #### GAME LOOP ####
+    # make socket non-blocking
+    connection.setblocking(0)
     while True:
         ### Receive network move
         if( currentGame.networkGame ):
+            data = receiveMove( connection , currentGame )
             if( Board.whitesTurn ):
                 if( currentGame.playerSide != chessLocals.WHITE ):
-                    data,client = connection.recvfrom(1000)
                     # data received is move already validated, so make it
                     # in local board
-                    Board.makeMove( pickle.loads(data) )
+                    if not( ( data == None) or ( data == 'quit' ) ):
+                        Board.makeMove( pickle.loads(data) )
                 #else, local player's turn. pass
             else:
                 if not( currentGame.playerSide == chessLocals.BLACK ):
-                    data,client = connection.recvfrom(1000)
                     # data received is move already validated, so make it
                     # in local board
-                    Board.makeMove( pickle.loads(data) )
+                    if not( ( data == None) or ( data == 'quit' ) ):
+                        Board.makeMove( pickle.loads(data) )
+                #else, local player's turn. pass
                 
         for event in pygame.event.get():
             # check for QUIT event
             if event.type == 12:
-                connection.shutdown(SHUT_RDWR)
-                connection.close()
-                exitGame( )
-            # if a piece is clicked, but mouse is not up, move chip
+                exitGame( currentGame , connection)
+            # if a piece is clicked, but mouse is not up, move piece
             if event.type == MOUSEBUTTONDOWN:
                 # find piece clicked
                 coordClicked = posClicked( event.pos , squares )
@@ -431,7 +433,7 @@ def main( ):
                             if( btn == 'btnUndo' ):
                                 Board.undo( )
                         if( btn == 'btnQuit' ):
-                            exitGame()
+                            exitGame( currentGame , connection)
 
                 ####################### SQUARES
                 coordClicked = posClicked( event.pos , squares )
@@ -475,6 +477,16 @@ def main( ):
         # update screen after events
         updateScreen( Board , windowSurface , squares, currentGame,\
                       pygame.mouse.get_pos() )
+
+def receiveMove( connection , currentGame ):
+    try:
+        data,client = connection.recvfrom(1000)
+    except:
+        data = None
+    if( data == 'quit' ):
+        connection.sendto( 'ok', client )
+        currentGame.networkGame = False
+    return data
 
 def saveGame( Board , currentGame ):
     """Save current game state."""
@@ -680,7 +692,15 @@ def savedGame( fileToRead ):
     except:
         return None
     
-def exitGame( ):
+def exitGame( currentGame , connection ):
+    if( currentGame.networkGame ):
+        quitStr = 'quit'
+        connection.sendto( quitStr , currentGame.connectTo )
+        connection.setblocking(1)
+        data,client = connection.recvfrom(1000)
+        print data
+        #connection.shutdown(SHUT_RDWR)
+        connection.close()
     pygame.quit()
     sys.exit()
     
