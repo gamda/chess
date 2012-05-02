@@ -19,6 +19,7 @@ from move import move
 import chessLocals
 import square
 import pieces
+import dialog
 
 pygame.init()
 
@@ -291,14 +292,17 @@ def main( ):
     if( currentGame.networkGame ):
         connection = socket.socket ( socket.AF_INET, socket.SOCK_DGRAM )
         if( currentGame.iAmServer ):
-            # show waiting message
+            # show waiting message and ip
             pygame.draw.rect(windowSurface, boardColor, infoRect)
             pygame.draw.rect(windowSurface, boardColor, boardRect)
             waiting = basicFont.render('Waiting for opponent',True,
                                        (0,0,0),infoColor)
             windowSurface.blit(waiting, (100,100))
+            myIP = basicFont.render( 'IP: '+currentGame.ip,True,
+                                     (0,0,0),infoColor)
+            windowSurface.blit(myIP, (100,200))
             pygame.display.update()
-            connection.bind( ( currentGame.ip , PORT+3 ) )
+            connection.bind( ( currentGame.ip , PORT3 ) )
             data,client = connection.recvfrom(1000)
             print 'data from',client
             print data
@@ -306,7 +310,15 @@ def main( ):
             # send side info
             connection.sendto( currentGame.playerSide, client )
         else:
-            connection.connect( (currentGame.ip,PORT+3) )
+            currentGame.ip = dialog.getIP()
+            # show waiting message
+            pygame.draw.rect(windowSurface, boardColor, infoRect)
+            pygame.draw.rect(windowSurface, boardColor, boardRect)
+            waiting = basicFont.render('Waiting for opponent',True,
+                                       (0,0,0),infoColor)
+            windowSurface.blit(waiting, (100,100))
+            pygame.display.update()
+            connection.connect( ( currentGame.ip,PORT ) )
             connection.send('connected')
             # receive side info
             data, server = connection.recvfrom(1000)

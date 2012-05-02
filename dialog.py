@@ -13,9 +13,8 @@ from pygame.locals import *
 bgColor = (228,170,30)
 
 def getIP( ):
-    pygame.init()
     basicFont = pygame.font.SysFont(None, 40)
-    dialog = pygame.display.set_mode((640,240))
+    dialog = pygame.display.get_surface()
     dialog.fill(bgColor)
     txtBox = eztext.Input( maxlength=15, color=(0,0,0),
                            prompt='Enter IP: ' )
@@ -63,4 +62,4 @@ def getIP( ):
         pygame.display.update()
 
 if __name__ == '__main__':
-    print main()
+    print getIP()
