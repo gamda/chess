@@ -264,7 +264,7 @@ def main( ):
             # load game
             # see if there's a saved game
             try:
-                oldGame = open('saved.pkl','rb')
+                oldGame = open('promo.pkl','rb')
             except IOError:
                 oldGame = None
             prevGame = savedGame( oldGame )
@@ -286,7 +286,6 @@ def main( ):
     ### NETWORK
     connection = None
     currentGame.ip = socket.gethostbyname_ex(socket.gethostname())[2][0]
-    print currentGame.ip
     # ^ [2] to access list of ip addresses returned by gethostbyname_ex()
     #   [0] to retrieve the first ip address on the list
     if( currentGame.networkGame ):
@@ -302,7 +301,7 @@ def main( ):
                                      (0,0,0),infoColor)
             windowSurface.blit(myIP, (100,200))
             pygame.display.update()
-            connection.bind( ( currentGame.ip , PORT3 ) )
+            connection.bind( ( currentGame.ip , PORT ) )
             data,client = connection.recvfrom(1000)
             print 'data from',client
             print data
@@ -334,7 +333,7 @@ def main( ):
     pygame.mixer.music.load('04 5.mp3')
     pygame.mixer.music.play(-1,.2)
     
-    ### SETUP BOARD ###
+    ### SETUP BOARD SQUARES ###
     # create square dictionary
     drawX, drawY = 25,25
     squares = {}# pygame.rect objects

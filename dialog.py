@@ -53,6 +53,9 @@ def getIP( ):
                         else:
                             # cancel, return none
                             return
+            if event.type == pygame.KEYUP:
+                if event.key == K_RETURN:
+                    return txtBox.value
         dialog.fill(bgColor)
         txtBox.update(events)
         txtBox.draw(dialog)
