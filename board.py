@@ -295,7 +295,6 @@ class board:
         try:
             self.temp = self.pieces[endpos]
             if hasattr( self.temp , 'hasMoved' ):
-                print 'hasMoved updated'
                 self.hadTempMoved = self.temp.hasMoved
         except KeyError:
             self.temp = None
