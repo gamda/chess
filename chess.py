@@ -12,7 +12,6 @@ import pickle
 import socket
 from pygame.locals import *
 
-from buttonNames import *
 from button import button
 from board import board
 from move import move
@@ -355,7 +354,8 @@ def main( ):
 
     #### GAME LOOP ####
     # make socket non-blocking
-    connection.setblocking(0)
+    if( currentGame.networkGame ):
+        connection.setblocking(0)
     while True:
         ### Receive network move
         if( currentGame.networkGame ):
@@ -377,7 +377,7 @@ def main( ):
                 
         for event in pygame.event.get():
             # check for QUIT event
-            if event.type == 12:
+            if event.type == QUIT:
                 exitGame( currentGame , connection)
             # if a piece is clicked, but mouse is not up, move piece
             if event.type == MOUSEBUTTONDOWN:
